@@ -50,6 +50,15 @@ const SYSTEM_ACCOUNTS: Array<{
   { code: 'EXT_MTN_GHS',       kind: 'EXTERNAL_RAIL',    currency: 'GHS',  normalSide: 'DEBIT'  },
   { code: 'EXT_FLW_NGN',       kind: 'EXTERNAL_RAIL',    currency: 'NGN',  normalSide: 'DEBIT'  },
   { code: 'EXT_PAYSTACK_NGN',  kind: 'EXTERNAL_RAIL',    currency: 'NGN',  normalSide: 'DEBIT'  },
+  // Suspense — funds reserved during approval-queue holds. Debit-normal so
+  // a positive balance reflects funds currently held off the user's wallet.
+  { code: 'SYS_SUSPENSE_USDC', kind: 'SUSPENSE',         currency: 'USDC', normalSide: 'DEBIT'  },
+  { code: 'SYS_SUSPENSE_USDT', kind: 'SUSPENSE',         currency: 'USDT', normalSide: 'DEBIT'  },
+  { code: 'SYS_SUSPENSE_USD',  kind: 'SUSPENSE',         currency: 'USD',  normalSide: 'DEBIT'  },
+  { code: 'SYS_SUSPENSE_NGN',  kind: 'SUSPENSE',         currency: 'NGN',  normalSide: 'DEBIT'  },
+  { code: 'SYS_SUSPENSE_KES',  kind: 'SUSPENSE',         currency: 'KES',  normalSide: 'DEBIT'  },
+  { code: 'SYS_SUSPENSE_GHS',  kind: 'SUSPENSE',         currency: 'GHS',  normalSide: 'DEBIT'  },
+  { code: 'SYS_SUSPENSE_ZAR',  kind: 'SUSPENSE',         currency: 'ZAR',  normalSide: 'DEBIT'  },
 ];
 
 const PERMISSIONS = [

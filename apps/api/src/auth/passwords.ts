@@ -7,16 +7,25 @@
  */
 import { createHash, scryptSync, randomBytes, timingSafeEqual } from 'node:crypto';
 
-let argon2: typeof import('argon2') | null = null;
-try { argon2 = await import('argon2'); } catch { argon2 = null; }
+type Argon2Module = typeof import('argon2');
+let argon2: Argon2Module | null = null;
+let argon2Loaded = false;
+async function getArgon2(): Promise<Argon2Module | null> {
+  if (argon2Loaded) return argon2;
+  argon2Loaded = true;
+  try { argon2 = (await import('argon2')) as Argon2Module; }
+  catch { argon2 = null; }
+  return argon2;
+}
 
 const SCRYPT_PREFIX = 'scrypt$';
 const ARGON2_PREFIX = '$argon2id$';
 
 export async function hashPassword(plain: string): Promise<string> {
-  if (argon2) {
-    return argon2.hash(plain, {
-      type: argon2.argon2id,
+  const a = await getArgon2();
+  if (a) {
+    return a.hash(plain, {
+      type: a.argon2id,
       memoryCost: 19_456, // ~19 MiB
       timeCost: 2,
       parallelism: 1,
@@ -29,8 +38,9 @@ export async function hashPassword(plain: string): Promise<string> {
 
 export async function verifyPassword(plain: string, stored: string): Promise<boolean> {
   if (stored.startsWith(ARGON2_PREFIX)) {
-    if (!argon2) return false; // we have an argon hash but no argon lib — fail closed
-    try { return await argon2.verify(stored, plain); }
+    const a = await getArgon2();
+    if (!a) return false; // we have an argon hash but no argon lib — fail closed
+    try { return await a.verify(stored, plain); }
     catch { return false; }
   }
   if (stored.startsWith(SCRYPT_PREFIX)) {

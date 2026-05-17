@@ -6,6 +6,39 @@
  * in the middle of a money movement.
  */
 import { z } from 'zod';
+import { readFileSync, existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+/**
+ * Lightweight .env loader (dev convenience only). Walks up from cwd looking
+ * for `.env`; first hit wins. In production, container env / vault inject the
+ * vars and this function is a no-op.
+ */
+function loadDotEnvIfPresent(): void {
+  if (process.env.NODE_ENV === 'production') return;
+  let dir = process.cwd();
+  for (let i = 0; i < 6; i++) {
+    const p = resolve(dir, '.env');
+    if (existsSync(p)) {
+      const content = readFileSync(p, 'utf8');
+      for (const line of content.split(/\r?\n/)) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eq = trimmed.indexOf('=');
+        if (eq < 0) continue;
+        const key = trimmed.slice(0, eq).trim();
+        if (process.env[key] !== undefined) continue;
+        const val = trimmed.slice(eq + 1).trim().replace(/^"(.*)"$/, '$1');
+        process.env[key] = val;
+      }
+      return;
+    }
+    const parent = resolve(dir, '..');
+    if (parent === dir) break;
+    dir = parent;
+  }
+}
+loadDotEnvIfPresent();
 
 const HexKey32 = z.string().regex(/^[0-9a-fA-F]{64}$/, 'must be 32 bytes hex (64 chars)');
 const NonEmpty = z.string().min(1);

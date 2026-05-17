@@ -56,12 +56,13 @@ export class TransferService {
       throw new AppError('VALIDATION_ERROR', 'Cannot send to self', 400);
     }
 
-    // Idempotency replay short-circuit.
-    const replay = await this.db.idempotencyKey.findUnique({ where: { key: input.idempotencyKey } });
-    if (replay) {
-      const tx = await this.db.transaction.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
-      if (tx) return tx;
-    }
+    // Idempotency replay short-circuit. The HTTP middleware also caches the
+    // response, but if the service is called directly (workers/tests) this
+    // covers the same guarantee.
+    const replay = await this.db.transaction.findUnique({
+      where: { idempotencyKey: input.idempotencyKey },
+    });
+    if (replay) return replay;
 
     const sender = await this.db.user.findUnique({
       where: { id: input.senderId },
@@ -165,19 +166,10 @@ export class TransferService {
       const finalised = await tx.transaction.update({
         where: { id: transaction.id }, data: { status: 'COMPLETED' },
       });
-
-      // Idempotency cache (24h).
-      await tx.idempotencyKey.create({
-        data: {
-          key: input.idempotencyKey,
-          userId: input.senderId,
-          endpoint: 'transfers.internal',
-          requestHash: 'sha256:omitted', // filled by HTTP layer normally
-          responseStatus: 200,
-          responseBody: { transactionId: finalised.id } as object,
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        },
-      });
+      // Idempotency: the HTTP middleware owns the IdempotencyKey row and
+      // stores the cached response. The Transaction itself carries the key
+      // via its unique `idempotencyKey` column, which guarantees a single
+      // posting even if this service is called directly.
 
       await this.audit.log({
         actorType: 'user', actorId: input.senderId, userId: input.senderId,
