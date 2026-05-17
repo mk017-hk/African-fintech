@@ -10,6 +10,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:reset": "prisma migrate reset --force",
     "seed": "tsx prisma/seed.ts",
+    "seed:dev": "tsx prisma/dev-seed.ts",
     "typecheck": "tsc --noEmit",
     "build": "tsc"
   },
