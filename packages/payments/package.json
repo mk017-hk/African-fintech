@@ -1,0 +1,26 @@
+{
+  "name": "@afristable/payments",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@afristable/blockchain": "workspace:*",
+    "@afristable/compliance": "workspace:*",
+    "@afristable/config": "workspace:*",
+    "@afristable/database": "workspace:*",
+    "@afristable/fraud": "workspace:*",
+    "@afristable/ledger": "workspace:*",
+    "@afristable/shared": "workspace:*",
+    "decimal.js": "^10.4.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vitest": "^1.4.0"
+  }
+}

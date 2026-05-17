@@ -1,0 +1,261 @@
+openapi: 3.1.0
+info:
+  title: AfriStable Pay API
+  version: 0.1.0
+  description: |
+    Stablecoin-powered money platform for Africa.
+
+    **Conventions**
+    - Auth: `Authorization: Bearer <accessToken>` for user routes.
+    - Money: amounts are decimal strings; never numbers.
+    - Idempotency: every money-moving POST requires `Idempotency-Key`.
+    - Errors: `{ error: { code, message, details? } }`.
+
+servers:
+  - url: http://localhost:4000
+
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:    { type: string }
+            message: { type: string }
+            details: {}
+    Money:
+      type: object
+      required: [amount, currency]
+      properties:
+        amount:   { type: string, example: "100.00" }
+        currency: { type: string, example: "USDC" }
+    Wallet:
+      type: object
+      properties:
+        id:               { type: string }
+        currency:         { type: string }
+        type:             { type: string, enum: [STABLECOIN, FIAT] }
+        status:           { type: string, enum: [ACTIVE, FROZEN, CLOSED] }
+        availableBalance: { type: string }
+        pendingBalance:   { type: string }
+        lockedBalance:    { type: string }
+    Quote:
+      type: object
+      properties:
+        id: { type: string }
+        fromCurrency: { type: string }
+        toCurrency:   { type: string }
+        fromAmount:   { type: string }
+        toAmount:     { type: string }
+        rate:         { type: string }
+        feeAmount:    { type: string }
+        feeCurrency:  { type: string }
+        spreadBps:    { type: integer }
+        slippageBps:  { type: integer }
+        rail:         { type: string }
+        signature:    { type: string }
+        expiresAt:    { type: string, format: date-time }
+
+paths:
+  /health:
+    get:
+      summary: Liveness probe
+      responses: { '200': { description: ok } }
+
+  /v1/auth/signup:
+    post:
+      summary: Create an account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, countryCode, acceptedTerms]
+              properties:
+                email:          { type: string, format: email }
+                password:       { type: string, minLength: 12 }
+                phoneE164:      { type: string }
+                countryCode:    { type: string, minLength: 2, maxLength: 2 }
+                acceptedTerms:  { type: boolean, const: true }
+      responses:
+        '201': { description: created }
+        '409': { description: email exists }
+
+  /v1/auth/login:
+    post:
+      summary: Password login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:    { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200':
+          description: tokens
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:  { type: string }
+                  refreshToken: { type: string }
+                  expiresIn:    { type: integer }
+
+  /v1/wallets:
+    get:
+      summary: List my wallets
+      security: [{ bearer: [] }]
+      responses:
+        '200':
+          description: wallets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  wallets:
+                    type: array
+                    items: { $ref: '#/components/schemas/Wallet' }
+
+  /v1/quotes:
+    post:
+      summary: Create a signed quote
+      security: [{ bearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fromCurrency, toCurrency, rail]
+              properties:
+                fromCurrency: { type: string }
+                toCurrency:   { type: string }
+                fromAmount:   { type: string }
+                toAmount:     { type: string }
+                rail:         { type: string }
+      responses:
+        '200':
+          description: quote
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Quote' }
+
+  /v1/transfers:
+    post:
+      summary: Internal P2P transfer (requires Idempotency-Key)
+      security: [{ bearer: [] }]
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quoteId, destination]
+              properties:
+                quoteId: { type: string }
+                destination:
+                  oneOf:
+                    - { type: object, properties: { kind: { const: phone },  phoneE164: { type: string } } }
+                    - { type: object, properties: { kind: { const: user },   userId:    { type: string } } }
+                note: { type: string, maxLength: 280 }
+      responses:
+        '201': { description: transfer created }
+        '402': { description: insufficient funds }
+        '409': { description: idempotency mismatch or quote consumed }
+
+  /v1/withdrawals/onchain:
+    post:
+      summary: On-chain stablecoin withdrawal
+      security: [{ bearer: [] }]
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quoteId, network, toAddress]
+              properties:
+                quoteId:   { type: string }
+                network:   { type: string, enum: [ETHEREUM, POLYGON, BASE, SOLANA, STELLAR] }
+                toAddress: { type: string }
+                memo:      { type: string, maxLength: 64 }
+      responses:
+        '201': { description: queued / processing }
+
+  /v1/withdrawals/mobile-money:
+    post:
+      summary: Mobile money payout
+      security: [{ bearer: [] }]
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quoteId, provider, msisdnE164]
+              properties:
+                quoteId:    { type: string }
+                provider:   { type: string, enum: [MPESA, MTN, ORANGE, AIRTEL] }
+                msisdnE164: { type: string }
+      responses:
+        '201': { description: queued }
+
+  /v1/withdrawals/bank:
+    post:
+      summary: Bank payout
+      security: [{ bearer: [] }]
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quoteId, partner, bankCode, accountNumber, accountName]
+              properties:
+                quoteId:       { type: string }
+                partner:       { type: string, enum: [flutterwave, paystack, generic] }
+                bankCode:      { type: string }
+                accountNumber: { type: string }
+                accountName:   { type: string }
+      responses:
+        '201': { description: queued }
+
+  /v1/admin/approvals:
+    get:
+      summary: Approval queue
+      security: [{ bearer: [] }]
+      responses: { '200': { description: items } }
