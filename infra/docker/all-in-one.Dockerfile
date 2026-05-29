@@ -50,4 +50,4 @@ EXPOSE 3000
 # tini handles signal forwarding; we run the API in the background and
 # foreground Next so the platform's healthchecks see the public service.
 ENTRYPOINT ["/sbin/tini", "--"]
-CMD ["sh", "-c", "pnpm --filter @afristable/database prisma migrate deploy && (pnpm --filter @afristable/api tsx src/server.ts &) && pnpm --filter @afristable/web start -p ${PORT:-3000}"]
+CMD ["sh", "-c", "pnpm --filter @afristable/database prisma:deploy && (pnpm --filter @afristable/api exec tsx src/server.ts &) && pnpm --filter @afristable/web start -p ${PORT:-3000}"]
