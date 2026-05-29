@@ -1,10 +1,17 @@
 /**
- * Lightweight typed API client. Token is held in memory for the session;
- * refresh tokens live in httpOnly cookies set by the API for browser flows.
- * For mobile/native, this client also supports header-based bearer.
+ * Lightweight typed API client.
+ *
+ * All requests go through the Next.js `/api` proxy (see next.config.mjs).
+ * This means the browser only ever talks to the web origin — no CORS, no
+ * cross-origin cookie issues, no need to expose the API port publicly in
+ * Codespaces/hosted previews. Server-side, Next forwards to the API at the
+ * private URL set in API_INTERNAL_URL.
+ *
+ * `NEXT_PUBLIC_API_URL` is honoured if set, for cases where you want the
+ * browser to call the API directly (e.g. a mobile client reusing this file).
  */
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+const BASE = process.env.NEXT_PUBLIC_API_URL ?? '/api';
 
 let accessToken: string | null = null;
 let refreshToken: string | null = null;
